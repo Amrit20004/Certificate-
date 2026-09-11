@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+}
+
+enum CertificateStatus {
+  DRAFT
+  ISSUED
+  REVOKED
+}
+
+enum AuditAction {
+  LOGIN
+  LOGIN_FAILED
+  CREATE_CERTIFICATE
+  GENERATE_CERTIFICATE
+  UPDATE_CERTIFICATE
+  DOWNLOAD_CERTIFICATE
+  REVOKE_CERTIFICATE
+  RESTORE_CERTIFICATE
+  CREATE_USER
+  CREATE_TEMPLATE
+  ACTIVATE_TEMPLATE
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(ADMIN)
+  isActive     Boolean  @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  certificatesCreated Certificate[] @relation("CertificateCreatedBy")
+  certificatesRevoked Certificate[] @relation("CertificateRevokedBy")
+  auditLogs           AuditLog[]
+}
+
+model Candidate {
+  id        String   @id @default(cuid())
+  name      String
+  title     String?
+  email     String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  certificates Certificate[]
+
+  // Name is not unique — two real people can share one. Email is the only
+  // reliable identity key, and it is optional, so dedupe happens at the
+  // certificate level instead.
+  @@index([name])
+  @@index([email])
+}
+
+model Template {
+  id        String   @id @default(cuid())
+  name      String
+  version   Int      @default(1)
+  /// Storage key of the background PDF (single page, already designed).
+  fileKey   String
+  /// Field coordinates, fonts and sizes. See templates/internship-v1.json.
+  config    Json
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  certificates Certificate[]
+
+  @@unique([name, version])
+}
+
+model Certificate {
+  id                String            @id @default(cuid())
+  /// Human-facing ID, e.g. NXT-INT-2026-000001. Shown on the PDF and in the UI.
+  certificateNumber String            @unique
+  /// Unguessable token used in the public verification URL and the QR code.
+  /// Kept separate from certificateNumber so the public endpoint cannot be
+  /// walked sequentially to harvest every intern's details.
+  verificationToken String            @unique
+
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id])
+
+  templateId String
+  template   Template @relation(fields: [templateId], references: [id])
+  /// Frozen copy of the template config used at generation time, so a
+  /// regenerate months later reproduces the original layout exactly.
+  templateSnapshot Json
+
+  role      String
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+  issueDate DateTime @db.Date
+
+  status CertificateStatus @default(DRAFT)
+
+  pdfKey      String?
+  pdfFilename String?
+
+  createdById String
+  createdBy   User   @relation("CertificateCreatedBy", fields: [createdById], references: [id])
+
+  revokedAt        DateTime?
+  revokedById      String?
+  revokedBy        User?     @relation("CertificateRevokedBy", fields: [revokedById], references: [id])
+  revocationReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  auditLogs AuditLog[]
+
+  @@index([candidateId])
+  @@index([status])
+  @@index([role])
+  @@index([createdAt])
+}
+
+/// One row per (prefix, year). Locked with SELECT ... FOR UPDATE inside the
+/// same transaction that inserts the certificate, so concurrent requests and
+/// bulk generation can never mint the same number twice.
+model CertificateCounter {
+  id      String @id @default(cuid())
+  prefix  String
+  year    Int
+  current Int    @default(0)
+
+  @@unique([prefix, year])
+}
+
+model AuditLog {
+  id            String      @id @default(cuid())
+  userId        String?
+  user          User?       @relation(fields: [userId], references: [id])
+  certificateId String?
+  certificate   Certificate? @relation(fields: [certificateId], references: [id])
+  action        AuditAction
+  metadata      Json?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime    @default(now())
+
+  @@index([certificateId])
+  @@index([userId])
+  @@index([createdAt])
+}
