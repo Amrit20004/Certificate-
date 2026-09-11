@@ -11,11 +11,11 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "seed": "node --experimental-strip-types prisma/seed.ts",
+    "seed": "npx tsx prisma/seed.ts",
     "template:probe": "node --experimental-strip-types scripts/probe-template.ts"
   },
   "prisma": {
-    "seed": "node --experimental-strip-types prisma/seed.ts"
+    "seed": "npx tsx prisma/seed.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1131.0",
