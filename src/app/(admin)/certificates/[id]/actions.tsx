@@ -11,15 +11,17 @@ interface Props {
   status: string;
   canRevoke: boolean;
   canRegenerate: boolean;
+  canDelete?: boolean;
   hasPdf: boolean;
 }
 
 export function CertificateActions({
-  certificateId, certificateNumber, verificationUrl, status, canRevoke, canRegenerate, hasPdf,
+  certificateId, certificateNumber, verificationUrl, status, canRevoke, canRegenerate, canDelete, hasPdf,
 }: Props) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
   const [revoking, setRevoking] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [reason, setReason] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +45,27 @@ export function CertificateActions({
     } catch {
       setError("That did not work. Check your connection and try again.");
       return false;
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleDelete() {
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/certificates/${certificateId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setError(data.error ?? "Failed to delete certificate.");
+        return;
+      }
+      router.push("/certificates");
+      router.refresh();
+    } catch {
+      setError("Failed to delete certificate. Check your connection.");
     } finally {
       setPending(false);
     }
@@ -94,6 +117,12 @@ export function CertificateActions({
         {canRevoke && status !== "REVOKED" ? (
           <Button variant="quiet" onClick={() => setRevoking(true)}>Revoke</Button>
         ) : null}
+
+        {canDelete ? (
+          <Button variant="quiet" onClick={() => setDeleting(true)}>
+            Delete
+          </Button>
+        ) : null}
       </div>
 
       {error ? <p className="field-error" role="alert">{error}</p> : null}
@@ -133,6 +162,38 @@ export function CertificateActions({
                 }}
               >
                 {pending ? "Revoking" : "Revoke certificate"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {deleting ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-cert-heading"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-5"
+        >
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+            <h2 id="delete-cert-heading" className="font-record text-xl text-seal">Permanently delete certificate?</h2>
+            <p className="mt-2 text-small text-ink-muted">
+              Are you sure you want to delete <span className="font-mono text-ink font-semibold">{certificateNumber}</span>?
+            </p>
+            <p className="mt-2 text-micro text-ink-muted bg-seal-tint/50 p-3 rounded border border-seal/20">
+              ⚠️ This will completely erase this certificate record and its audit history from the database. This action cannot be undone.
+            </p>
+
+            <div className="mt-5 flex justify-end gap-3">
+              <Button variant="secondary" onClick={() => setDeleting(false)} disabled={pending}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                disabled={pending}
+                onClick={handleDelete}
+              >
+                {pending ? "Deleting..." : "Permanently Delete"}
               </Button>
             </div>
           </div>

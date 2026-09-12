@@ -8,6 +8,8 @@ export const PERMISSIONS = {
   "certificate:download": ["SUPER_ADMIN", "ADMIN"],
   "certificate:revoke": ["SUPER_ADMIN"],
   "certificate:regenerate": ["SUPER_ADMIN"],
+  "certificate:delete": ["SUPER_ADMIN"],
+  "candidate:delete": ["SUPER_ADMIN", "ADMIN"],
   "template:manage": ["SUPER_ADMIN"],
   "user:manage": ["SUPER_ADMIN"],
   "audit:view": ["SUPER_ADMIN"],

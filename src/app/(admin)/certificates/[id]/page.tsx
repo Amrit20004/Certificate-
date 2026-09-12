@@ -64,6 +64,7 @@ export default async function CertificateDetailPage({
 
   const canRevoke = can(session?.user.role, "certificate:revoke");
   const canRegenerate = can(session?.user.role, "certificate:regenerate");
+  const canDelete = can(session?.user.role, "certificate:delete");
   const link = verificationUrl(certificate.verificationToken);
 
   return (
@@ -101,6 +102,7 @@ export default async function CertificateDetailPage({
           status={certificate.status}
           canRevoke={canRevoke}
           canRegenerate={canRegenerate}
+          canDelete={canDelete}
           hasPdf={Boolean(certificate.pdfKey)}
         />
       </div>

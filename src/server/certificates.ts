@@ -420,3 +420,15 @@ export async function verifyByToken(token: string) {
   if (!certificate || certificate.status === "DRAFT") return null;
   return certificate;
 }
+
+/** Deletes a certificate and its audit records permanently. */
+export async function deleteCertificate(id: string) {
+  return await prisma.$transaction(async (tx) => {
+    await tx.auditLog.deleteMany({
+      where: { certificateId: id },
+    });
+    return await tx.certificate.delete({
+      where: { id },
+    });
+  });
+}

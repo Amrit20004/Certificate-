@@ -52,11 +52,12 @@ export default async function CandidatesPage({
               <th className="px-3 py-2 font-medium">Name</th>
               <th className="hidden px-3 py-2 font-medium sm:table-cell">Email</th>
               <th className="px-3 py-2 font-medium">Certificates</th>
+              <th className="px-3 py-2 font-medium text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {candidates.map((candidate) => (
-              <tr key={candidate.id} className="border-b border-rule">
+              <tr key={candidate.id} className="border-b border-rule hover:bg-paper/50 transition">
                 <td className="px-3 py-2.5">
                   <Link
                     href={`/candidates/${candidate.id}`}
@@ -67,6 +68,14 @@ export default async function CandidatesPage({
                 </td>
                 <td className="hidden px-3 py-2.5 text-ink-muted sm:table-cell">{candidate.email ?? "—"}</td>
                 <td className="tabular px-3 py-2.5">{candidate._count.certificates}</td>
+                <td className="px-3 py-2.5 text-right">
+                  <Link
+                    href={`/candidates/${candidate.id}`}
+                    className="inline-flex items-center rounded border border-rule bg-white px-2.5 py-1 text-micro font-medium text-ink hover:border-ink-muted"
+                  >
+                    Manage / Delete →
+                  </Link>
+                </td>
               </tr>
             ))}
           </tbody>

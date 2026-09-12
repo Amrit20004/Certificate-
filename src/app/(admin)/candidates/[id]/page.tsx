@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { formatPlainDate, formatShortDate } from "@/lib/dates";
 import { StatusPill, LinkButton } from "@/components/ui";
+import { DeleteCandidateButton } from "./delete-button";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +47,11 @@ export default async function CandidateDetailPage({
             Candidate ID: <span className="font-mono text-micro text-ink">{candidate.id}</span>
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          <DeleteCandidateButton
+            candidateId={candidate.id}
+            candidateName={candidate.name}
+          />
           <LinkButton
             href={`/certificates/create?name=${encodeURIComponent(candidate.name)}&title=${encodeURIComponent(candidate.title ?? "")}&email=${encodeURIComponent(candidate.email ?? "")}&phone=${encodeURIComponent(candidate.phone ?? "")}`}
             variant="primary"
