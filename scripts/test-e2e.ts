@@ -26,6 +26,7 @@ async function main() {
     endDate: "2026-08-31",
     issueDate: "2026-08-31",
     templateId: template.id,
+    confirmDuplicate: false,
   });
   const previewHeader = Buffer.from(previewBytes.slice(0, 5)).toString("utf8");
   if (previewHeader !== "%PDF-") throw new Error(`Invalid PDF header for preview: ${previewHeader}`);
