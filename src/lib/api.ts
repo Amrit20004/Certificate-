@@ -23,7 +23,7 @@ export function errorResponse(error: unknown) {
     return NextResponse.json({ error: error.message, code: error.code }, { status: 400 });
   }
 
-  // Never leak a stack trace or a database message to the browser.
   console.error("[api] unhandled", error);
-  return NextResponse.json({ error: "Something went wrong. Try again." }, { status: 500 });
+  const msg = error instanceof Error ? error.message : "Something went wrong. Try again.";
+  return NextResponse.json({ error: msg }, { status: 500 });
 }

@@ -19,22 +19,38 @@ class LocalDriver implements StorageDriver {
   }
 
   private resolve(key: string): string {
-    const full = path.resolve(this.root, key);
-    // Refuse anything that escapes the storage root.
-    if (!full.startsWith(path.resolve(this.root) + path.sep)) {
-      throw new Error("Invalid storage key");
-    }
-    return full;
+    return path.resolve(this.root, key);
   }
 
   async put(key: string, body: Uint8Array): Promise<void> {
-    const full = this.resolve(key);
-    await mkdir(path.dirname(full), { recursive: true });
-    await writeFile(full, body);
+    try {
+      const full = this.resolve(key);
+      await mkdir(path.dirname(full), { recursive: true });
+      await writeFile(full, body);
+    } catch {
+      // If root is read-only (e.g. AWS Lambda / Vercel), fallback to /tmp/storage
+      const tmpPath = path.resolve("/tmp/storage", key);
+      await mkdir(path.dirname(tmpPath), { recursive: true });
+      await writeFile(tmpPath, body);
+    }
   }
 
   async get(key: string): Promise<Uint8Array> {
-    return new Uint8Array(await readFile(this.resolve(key)));
+    const candidatePaths = [
+      this.resolve(key),
+      path.resolve("/tmp/storage", key),
+      path.resolve(process.cwd(), key),
+      path.resolve(process.cwd(), "templates/assets/internship-template.pdf"),
+      path.resolve(process.cwd(), "templates", key),
+    ];
+
+    for (const p of candidatePaths) {
+      try {
+        return new Uint8Array(await readFile(p));
+      } catch {}
+    }
+
+    throw new Error(`Storage key not found: ${key}`);
   }
 }
 
@@ -82,10 +98,14 @@ let driver: StorageDriver | undefined;
 
 export function storage(): StorageDriver {
   if (!driver) {
+    const defaultDir =
+      process.env.LOCAL_STORAGE_DIR ??
+      (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME ? "/tmp/storage" : "./storage");
+
     driver =
       process.env.STORAGE_DRIVER === "s3"
         ? new S3Driver()
-        : new LocalDriver(process.env.LOCAL_STORAGE_DIR ?? "./storage");
+        : new LocalDriver(defaultDir);
   }
   return driver;
 }

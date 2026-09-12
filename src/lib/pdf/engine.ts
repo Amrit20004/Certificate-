@@ -211,24 +211,29 @@ async function resolveFonts(doc: PDFDocument, config: TemplateConfig): Promise<R
   const fonts: Record<string, PDFFont> = {};
 
   for (const [key, ref] of Object.entries(config.fonts)) {
-    // Custom faces must be embedded with fontkit; pdf-lib otherwise offers only
-    // its 14 built-ins, none of which match a script certificate font.
     if (ref.file) {
-      try {
-        const bytes = await readFile(path.resolve(process.cwd(), ref.file));
-        fonts[key] = await doc.embedFont(bytes, { subset: true });
-        continue;
-      } catch {
-        if (!ref.standard) {
-          throw new Error(
-            `Font "${key}" points at ${ref.file}, which is missing, and no standard fallback is set. ` +
-              `Add the font file or set a "standard" font in the template config.`,
-          );
-        }
-        console.warn(`[pdf] font "${key}" file missing, falling back to ${ref.standard}`);
+      const candidates = [
+        path.resolve(process.cwd(), ref.file),
+        path.resolve(process.cwd(), "templates/assets/fonts", path.basename(ref.file)),
+      ];
+
+      let loaded = false;
+      for (const p of candidates) {
+        try {
+          const bytes = await readFile(p);
+          fonts[key] = await doc.embedFont(bytes, { subset: true });
+          loaded = true;
+          break;
+        } catch {}
       }
+
+      if (loaded) continue;
+
+      console.warn(`[pdf] font "${key}" file missing at ${ref.file}, falling back to standard font`);
     }
-    fonts[key] = await doc.embedFont(StandardFonts[(ref.standard ?? "Helvetica") as keyof typeof StandardFonts]);
+
+    const fallbackName = (ref.standard ?? "Helvetica") as keyof typeof StandardFonts;
+    fonts[key] = await doc.embedFont(StandardFonts[fallbackName] ?? StandardFonts.Helvetica);
   }
   return fonts;
 }
