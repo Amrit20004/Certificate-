@@ -5,7 +5,19 @@ import QRCode from "qrcode";
  * can scan it, so the page it lands on decides what is public.
  */
 export function verificationUrl(token: string): string {
-  const base = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL;
+  const vercelUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : undefined;
+
+  const rawBase = envUrl || vercelUrl || "http://localhost:3000";
+  const withProtocol = rawBase.startsWith("http://") || rawBase.startsWith("https://")
+    ? rawBase
+    : `https://${rawBase}`;
+
+  const base = withProtocol.replace(/\/+$/, "");
   return `${base}/verify/${token}`;
 }
 
