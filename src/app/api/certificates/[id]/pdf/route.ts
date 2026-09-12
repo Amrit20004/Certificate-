@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server";
 import { requirePermission } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
-import { storage } from "@/lib/storage";
+import { getOrRenderCertificatePdf } from "@/server/certificates";
 import { recordAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api";
 
@@ -16,14 +16,13 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ id: str
 
     const certificate = await prisma.certificate.findUnique({
       where: { id },
-      include: { candidate: { select: { name: true } } },
     });
 
-    if (!certificate?.pdfKey) {
-      return new Response("Certificate PDF not found", { status: 404 });
+    if (!certificate) {
+      return new Response("Certificate not found", { status: 404 });
     }
 
-    const bytes = await storage().get(certificate.pdfKey);
+    const { pdf, filename } = await getOrRenderCertificatePdf(certificate.id);
 
     await recordAudit({
       userId: user.id,
@@ -34,10 +33,10 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ id: str
 
     const disposition = request.nextUrl.searchParams.get("inline") ? "inline" : "attachment";
 
-    return new Response(bytes as BodyInit, {
+    return new Response(pdf as BodyInit, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `${disposition}; filename="${certificate.pdfFilename ?? "certificate.pdf"}"`,
+        "Content-Disposition": `${disposition}; filename="${filename}"`,
         "Cache-Control": "private, no-store",
       },
     });

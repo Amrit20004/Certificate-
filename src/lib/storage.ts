@@ -36,12 +36,17 @@ class LocalDriver implements StorageDriver {
   }
 
   async get(key: string): Promise<Uint8Array> {
+    const isTemplateKey = key.includes("template") || key.includes("internship");
     const candidatePaths = [
       this.resolve(key),
       path.resolve("/tmp/storage", key),
       path.resolve(process.cwd(), key),
-      path.resolve(process.cwd(), "templates/assets/internship-template.pdf"),
-      path.resolve(process.cwd(), "templates", key),
+      ...(isTemplateKey
+        ? [
+            path.resolve(process.cwd(), "templates/assets/internship-template.pdf"),
+            path.resolve(process.cwd(), "templates", key),
+          ]
+        : []),
     ];
 
     for (const p of candidatePaths) {

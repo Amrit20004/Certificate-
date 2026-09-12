@@ -252,6 +252,65 @@ export async function regenerateCertificate(certificateId: string, userId: strin
   return warnings;
 }
 
+/**
+ * Retrieves the compiled PDF for a certificate.
+ * If the file is missing from local/ephemeral storage, renders it dynamically
+ * on the fly using the database record and template snapshot.
+ */
+export async function getOrRenderCertificatePdf(certificateId: string): Promise<{ pdf: Uint8Array; filename: string }> {
+  const certificate = await prisma.certificate.findUniqueOrThrow({
+    where: { id: certificateId },
+    include: { candidate: true },
+  });
+
+  const filename = certificate.pdfFilename ?? buildPdfFilename(certificate.candidate.name, certificate.certificateNumber);
+
+  // 1. Try reading from storage if key exists
+  if (certificate.pdfKey) {
+    try {
+      const bytes = await storage().get(certificate.pdfKey);
+      if (bytes && bytes.byteLength > 195000) {
+        return { pdf: bytes, filename };
+      }
+    } catch {}
+  }
+
+  // 2. Render on the fly using stored snapshot and candidate details
+  const template = await prisma.template.findUniqueOrThrow({ where: { id: certificate.templateId } });
+  const config = parseTemplateConfig(certificate.templateSnapshot);
+  const templatePdf = await storage().get(template.fileKey);
+  const url = verificationUrl(certificate.verificationToken);
+  const qrPng = await generateQrPng(url);
+
+  const text = buildCertificateText({
+    name: certificate.candidate.name,
+    title: certificate.candidate.title,
+    role: certificate.role,
+    startDate: certificate.startDate,
+    endDate: certificate.endDate,
+  });
+
+  const { pdf } = await renderCertificate({
+    templatePdf,
+    config,
+    data: {
+      candidateName: text.displayName,
+      bodyParagraphs: text.paragraphs,
+      certificateNumber: certificate.certificateNumber,
+      issueDate: formatPlainDate(certificate.issueDate),
+      role: certificate.role,
+      qrPng,
+    },
+  });
+
+  // Cache in storage if possible
+  if (certificate.pdfKey) {
+    await storage().put(certificate.pdfKey, pdf, "application/pdf").catch(() => {});
+  }
+
+  return { pdf, filename };
+}
+
 export async function revokeCertificate(certificateId: string, reason: string, userId: string) {
   const certificate = await prisma.certificate.findUniqueOrThrow({ where: { id: certificateId } });
 
